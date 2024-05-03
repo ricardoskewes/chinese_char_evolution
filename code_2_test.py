@@ -103,8 +103,6 @@ def generate_graph_data_from_dict(data_images_dict):
     data = Data(x=X, edge_index=E, y=y)
     return data
 
-
-
 # %%
 #print("The object Data is")
 #print(data.edge_index)
@@ -124,7 +122,33 @@ data = generate_graph_data_from_dict(data_images_dict)
 if data.validate(raise_on_error=True):
     print("Data is valid")
 model, loader, optimizer = load_graph_from_data(data)
-print(model)
+print("Model.forward is: "+ str(model.forward))
+
+def train():
+    model.train()  # put model in train model
+    total_loss = 0
+    for pos_rw, neg_rw in tqdm(loader):
+        optimizer.zero_grad()  # set the gradients to 0
+        loss = model.loss(pos_rw.to(device), neg_rw.to(device))  # compute the loss for the batch
+        loss.backward()
+        optimizer.step()  # optimize the parameters
+        total_loss += loss.item()
+    return total_loss / len(loader)
+
+for epoch in range(1, 100):
+    loss = train()
+    print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}')
+
+all_vectors = ""
+for tensor in model(torch.arange(data.num_nodes, device=device)):
+    s = "\t".join([str(value) for value in tensor.detach().cpu().numpy()])
+    all_vectors += s + "\n"
+# save the vectors
+with open("vectors.txt", "w") as f:
+    f.write(all_vectors)
+# save the labels
+with open("labels.txt", "w") as f:
+    f.write("\n".join([str(label) for label in data.y.numpy()]))
 # %%
 
 
