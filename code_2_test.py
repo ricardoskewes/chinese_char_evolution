@@ -68,7 +68,7 @@ def extract_image_data(dataset_path, extract_features_fn = None, considered_eras
 
                 characters[char_class].append(res)
                 t+=1
-        if t > 40 and early_stop:
+        if t > 200 and early_stop:
             break
     return characters
 
@@ -76,7 +76,7 @@ def extract_image_data(dataset_path, extract_features_fn = None, considered_eras
 
 # %%
 dataset_path = "images_background"
-data_images_dict = extract_image_data(dataset_path, extract_features_fn=extract_features, early_stop=True)
+data_images_dict = extract_image_data(dataset_path, extract_features_fn=extract_features, early_stop=False)
 
 # %%
 char_class_encoder = LabelEncoder()
@@ -88,6 +88,7 @@ def generate_graph_data_from_dict(data_images_dict):
     edges = []
     X = []
     y = []
+    labels = []  # This will collect labels for all nodes
     for char_class, data in data_images_dict.items():
         node_ids = [data[i][0] for i in range(len(data))]
         pairs = list(permutations(node_ids, 2))
@@ -97,10 +98,10 @@ def generate_graph_data_from_dict(data_images_dict):
         eras = [data[i][2] for i in range(len(data))]
         #print(eras)
         y += eras
-        #img_path = [data[i][3] for i in range(len(data))]
+        labels += eras  # Collect labels for all nodes
     E = torch.tensor(edges, dtype=torch.long).t().contiguous()
     X = torch.tensor(X, dtype=torch.float)
-    y = torch.tensor([int(y) for y in eras], dtype=torch.long)
+    y = torch.tensor([int(label) for label in labels], dtype=torch.long)  # Convert all labels
     #print(y)
     # Create PyG Data object
     data = Data(x=X, edge_index=E, y=y)
@@ -138,7 +139,7 @@ def train():
         total_loss += loss.item()
     return total_loss / len(loader)
 
-for epoch in tqdm(range(1, 101)):
+for epoch in tqdm(range(1, 51)):
     loss = train()
     print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}')
 
@@ -169,4 +170,7 @@ plt.colorbar(scatter)
 plt.title('t-SNE projection of the character vectors')
 plt.xlabel('Component 1')
 plt.ylabel('Component 2')
-plt.show()
+plt.savefig('/n/home02/rskeweszorrilla/chinese_char_evolution/graph_1.png')
+
+
+# %%
