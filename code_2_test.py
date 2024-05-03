@@ -11,6 +11,9 @@ from torch_geometric.data import Data
 from tqdm import tqdm
 from torch_geometric.nn import Node2Vec
 from itertools import permutations
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
 #import torch_cluster
 
 # %%
@@ -127,7 +130,7 @@ print("Model.forward is: "+ str(model.forward))
 def train():
     model.train()  # put model in train model
     total_loss = 0
-    for pos_rw, neg_rw in tqdm(loader):
+    for pos_rw, neg_rw in loader:
         optimizer.zero_grad()  # set the gradients to 0
         loss = model.loss(pos_rw.to(device), neg_rw.to(device))  # compute the loss for the batch
         loss.backward()
@@ -135,7 +138,7 @@ def train():
         total_loss += loss.item()
     return total_loss / len(loader)
 
-for epoch in range(1, 100):
+for epoch in tqdm(range(1, 101)):
     loss = train()
     print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}')
 
@@ -149,7 +152,21 @@ with open("vectors.txt", "w") as f:
 # save the labels
 with open("labels.txt", "w") as f:
     f.write("\n".join([str(label) for label in data.y.numpy()]))
-# %%
 
 
+# Convert string representations of tensors to actual tensors
+vector_data = np.loadtxt("vectors.txt")
+label_data = np.loadtxt("labels.txt")
 
+# Perform t-SNE dimensionality reduction
+tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+tsne_results = tsne.fit_transform(vector_data)
+
+# Plot the results with labels colored
+plt.figure(figsize=(16,10))
+scatter = plt.scatter(tsne_results[:,0], tsne_results[:,1], c=label_data, cmap='viridis', alpha=0.5)
+plt.colorbar(scatter)
+plt.title('t-SNE projection of the character vectors')
+plt.xlabel('Component 1')
+plt.ylabel('Component 2')
+plt.show()
