@@ -1,0 +1,29 @@
+DATA VALIDATED
+NUM NODES: 4798
+NUM EDGES: 7974
+Model.forward is: <bound method Node2Vec.forward of Node2Vec(4798, 128)>
+Epoch: 01, Loss: 6.6469
+Epoch: 02, Loss: 4.4529
+Epoch: 03, Loss: 3.7337
+Epoch: 04, Loss: 3.1521
+Epoch: 05, Loss: 2.6629
+Epoch: 06, Loss: 2.2716
+Epoch: 07, Loss: 1.9697
+Epoch: 08, Loss: 1.7443
+Epoch: 09, Loss: 1.5823
+Epoch: 10, Loss: 1.4550
+Epoch: 11, Loss: 1.3508
+Epoch: 12, Loss: 1.2652
+Epoch: 13, Loss: 1.1932
+Epoch: 14, Loss: 1.1329
+[t-SNE] Computing 121 nearest neighbors...
+[t-SNE] Indexed 4798 samples in 0.001s...
+[t-SNE] Computed neighbors for 4798 samples in 1.210s...
+[t-SNE] Computed conditional probabilities for sample 1000 / 4798
+[t-SNE] Computed conditional probabilities for sample 2000 / 4798
+[t-SNE] Computed conditional probabilities for sample 3000 / 4798
+[t-SNE] Computed conditional probabilities for sample 4000 / 4798
+[t-SNE] Computed conditional probabilities for sample 4798 / 4798
+[t-SNE] Mean sigma: 0.737819
+[t-SNE] KL divergence after 250 iterations with early exaggeration: 80.440804
+[t-SNE] KL divergence after 300 iterations: 3.775183

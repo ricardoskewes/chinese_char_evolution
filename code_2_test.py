@@ -13,6 +13,8 @@ from torch_geometric.nn import Node2Vec
 from itertools import permutations
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+import random
+os.environ['CUDA_LAUNCH_BLOCKING'] = '0'
 
 #import torch_cluster
 
@@ -84,28 +86,45 @@ char_class_id_map = char_class_encoder.fit(list(data_images_dict.keys()))
 
 
 # %%
-def generate_graph_data_from_dict(data_images_dict):
+def generate_graph_data_from_dict(data_images_dict, gamma=0.0075):
     edges = []
     X = []
     y = []
     labels = []  # This will collect labels for all nodes
+    
+    # Iterate through each character class and its data
     for char_class, data in data_images_dict.items():
         node_ids = [data[i][0] for i in range(len(data))]
-        pairs = list(permutations(node_ids, 2))
-        edges += pairs # Add pairs to the edges within a character class
         features = [data[i][1] for i in range(len(data))]
-        X += features # Append features
         eras = [data[i][2] for i in range(len(data))]
-        #print(eras)
+
+        # Append features and labels
+        X += features
         y += eras
         labels += eras  # Collect labels for all nodes
+
+        # Compute probabilistic edges between all node pairs within the same character class
+        for i in range(len(node_ids)):
+            for j in range(i + 1, len(node_ids)):  # Ensure we only calculate each pair once
+                distance = np.linalg.norm(features[i] - features[j])
+                probability = np.exp(-gamma * distance)
+                if random.random() < probability:
+                    edges.append((node_ids[i], node_ids[j]))
+                    edges.append((node_ids[j], node_ids[i]))  # Since the graph is undirected
+
+    # Convert all collected data into torch tensors
     E = torch.tensor(edges, dtype=torch.long).t().contiguous()
     X = torch.tensor(X, dtype=torch.float)
-    y = torch.tensor([int(label) for label in labels], dtype=torch.long)  # Convert all labels
-    #print(y)
+    y = torch.tensor([int(label) for label in labels], dtype=torch.long)  # Convert all labels to integer
+
     # Create PyG Data object
     data = Data(x=X, edge_index=E, y=y)
     return data
+data = generate_graph_data_from_dict(data_images_dict)
+if data.validate(raise_on_error=True):
+    print("DATA VALIDATED")
+    print(f"NUM NODES: {data.num_nodes}")
+    print(f"NUM EDGES: {data.num_edges}")
 
 # %%
 #print("The object Data is")
@@ -114,17 +133,15 @@ def generate_graph_data_from_dict(data_images_dict):
 # %%
 def load_graph_from_data(data):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'  # check if cuda is available to send the model and tensors to the GPU
-    model = Node2Vec(data.edge_index, embedding_dim=128, walk_length=20,
+    model = Node2Vec(data.edge_index, embedding_dim=128, walk_length=30,
                     context_size=10, walks_per_node=10,
-                    num_negative_samples=1, p=1, q=1, sparse=True).to(device)
+                    num_negative_samples=1, p=1, q=0.8, sparse=True).to(device)
     loader = model.loader(batch_size=128, shuffle=True, num_workers=4)  # data loader to speed the train 
     optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.01)  # initzialize the optimizer 
     return model, loader, optimizer
 
 # %%
-data = generate_graph_data_from_dict(data_images_dict)
-if data.validate(raise_on_error=True):
-    print("Data is valid")
+
 model, loader, optimizer = load_graph_from_data(data)
 print("Model.forward is: "+ str(model.forward))
 
@@ -139,12 +156,13 @@ def train():
         total_loss += loss.item()
     return total_loss / len(loader)
 
-for epoch in tqdm(range(1, 51)):
+for epoch in tqdm(range(1, 15)):
     loss = train()
     print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}')
 
 all_vectors = ""
 for tensor in model(torch.arange(data.num_nodes, device=device)):
+    # print(f"TENSOR IS: {tensor}")
     s = "\t".join([str(value) for value in tensor.detach().cpu().numpy()])
     all_vectors += s + "\n"
 # save the vectors
@@ -170,7 +188,7 @@ plt.colorbar(scatter)
 plt.title('t-SNE projection of the character vectors')
 plt.xlabel('Component 1')
 plt.ylabel('Component 2')
-plt.savefig('/n/home02/rskeweszorrilla/chinese_char_evolution/graph_1.png')
+plt.savefig('/n/home02/rskeweszorrilla/chinese_char_evolution/graph_6pm.png')
 
 
 # %%
