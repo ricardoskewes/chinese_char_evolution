@@ -7,6 +7,8 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from torch_geometric.data import Data
 from tqdm import tqdm
+from torch_geometric.nn import Node2Vec
+
 
 # Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,7 +39,6 @@ def extract_features(img_path):
     return features.cpu().numpy().flatten()
 
 
-# Create a graph from the dataset
 def create_graph_from_dataset(dataset_path):
     characters = {}
     edges = []
@@ -84,6 +85,82 @@ def create_graph_from_dataset(dataset_path):
     # Create PyG Data object
     data = Data(x=node_features, edge_index=edge_index, y=labels)
     return data
+
+
+
+
+
+
+characters = {}
+edges = []
+edge_attr = []
+
+# Load and process each image
+for root, dirs, files in tqdm(os.walk(dataset_path)):
+    for file in sorted(files):
+        if file.endswith(".png") and file.split("_")[-1][:2] in eras:
+            char_class, era = os.path.basename(root), file.split("_")[-1][:2]
+            if char_class not in characters:
+                characters[char_class] = []
+            
+            img_path = os.path.join(root, file)
+            features = extract_features(img_path)
+            characters[char_class].append((features, era, img_path))
+
+
+
+edge_index = torch.tensor(edges, dtype=torch.long) 
+node_features = torch.tensor(all_features, dtype=torch.float)
+labels = torch.tensor(all_labels, dtype=torch.long)
+
+data = Data(x=node_features, edge_index=edge_index.t().contiguous(), y = labels)
+
+
+###------OK FROM HERE
+device = 'cuda' if torch.cuda.is_available() else 'cpu'  # check if cuda is available to send the model and tensors to the GPU
+model = Node2Vec(data.edge_index, embedding_dim=128, walk_length=20,
+                 context_size=10, walks_per_node=10,
+                 num_negative_samples=1, p=1, q=1, sparse=True).to(device)
+
+loader = model.loader(batch_size=128, shuffle=True, num_workers=4)  # data loader to speed the train 
+optimizer = torch.optim.SparseAdam(list(model.parameters()), lr=0.01)  # initzialize the optimizer 
+
+
+def train():
+    model.train()  # put model in train model
+    total_loss = 0
+    for pos_rw, neg_rw in tqdm(loader):
+        optimizer.zero_grad()  # set the gradients to 0
+        loss = model.loss(pos_rw.to(device), neg_rw.to(device))  # compute the loss for the batch
+        loss.backward()
+        optimizer.step()  # optimize the parameters
+        total_loss += loss.item()
+    return total_loss / len(loader)
+
+
+for epoch in range(1, 100):
+    loss = train()
+    print(f'Epoch: {epoch:02d}, Loss: {loss:.4f}')
+
+all_vectors = ""
+for tensor in model(torch.arange(data.num_nodes, device=device)):
+    s = "\t".join([str(value) for value in tensor.detach().cpu().numpy()])
+    all_vectors += s + "\n"
+# save the vectors
+with open("vectors.txt", "w") as f:
+    f.write(all_vectors)
+# save the labels
+with open("labels.txt", "w") as f:
+    f.write("\n".join([str(label) for label in data.y.numpy()]))
+
+
+
+
+
+## OLD CODE:
+
+# Create a graph from the dataset
+
 
 
 # Path to your 'images_background' directory
